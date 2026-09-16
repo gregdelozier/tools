@@ -52,3 +52,13 @@ Each working course repository owns a `release.json`. It contains:
 The course-specific `tools/build_release.py` and `tools/check_release.py` files
 may be small launchers for these shared commands. This keeps existing course
 commands working without duplicating the implementation.
+
+## Markdown to PDF
+
+The repository also contains the Markdown publishing toolchain used to build
+course chapters and readings. Its source is in `md-to-pdf/`; installed Python
+and Node dependencies stay local and are excluded from Git. The normal command
+remains `~/.local/bin/md-to-pdf`.
+
+See `COURSE_RELEASE_TOOLS.md` for the design, release model, configuration,
+and normal operating procedure for the complete toolset.
