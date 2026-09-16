@@ -72,6 +72,29 @@ def create_github_repo(owner: str, name: str, source: Path, visibility: str) -> 
     )
 
 
+def enable_github_pages(owner: str, name: str, source: Path) -> None:
+    run(
+        [
+            "gh",
+            "api",
+            "--method",
+            "POST",
+            f"repos/{owner}/{name}/pages",
+            "-H",
+            "Accept: application/vnd.github+json",
+            "-H",
+            "X-GitHub-Api-Version: 2026-03-10",
+            "-f",
+            "build_type=legacy",
+            "-f",
+            "source[branch]=main",
+            "-f",
+            "source[path]=/",
+        ],
+        source,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("slug", type=slug_value, help="Directory and repository name, such as operating-systems")
@@ -141,11 +164,14 @@ def main() -> None:
     if args.github:
         create_github_repo(args.working_owner, args.slug, working, "private")
         create_github_repo(args.active_owner, args.slug, active, "public")
+        enable_github_pages(args.active_owner, args.slug, active)
 
     print(f"Working course: {working}")
     print(f"Active course:  {active}")
     if not args.github:
         print("GitHub repositories were not created. Use --github when that external step is intended.")
+    else:
+        print(f"GitHub Pages:   https://{args.active_owner}.github.io/{args.slug}/")
 
 
 if __name__ == "__main__":

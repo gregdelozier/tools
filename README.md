@@ -16,7 +16,8 @@ This creates `~/courses/operating-systems/working` and
 `~/courses/operating-systems/active`, initializes both as local Git repositories,
 and builds the initial student site. Add `--github` only when the corresponding
 private working repository and public student repository should also be created
-and pushed.
+and pushed. The same option enables GitHub Pages for the active repository from
+the root of its `main` branch.
 
 ## Build a release
 

@@ -89,8 +89,9 @@ existing class.
 GitHub creation is separate because it changes external state. Add `--github`
 when that is intended. The default owners create a private working repository
 under `gregdelozier` and a public active repository under `kentcs`, both using
-the course slug as the repository name. Owner names and the base directory are
-command-line options.
+the course slug as the repository name. The command also enables GitHub Pages
+for the active repository, served from `/` on its `main` branch. Owner names and
+the base directory are command-line options.
 
 ## Building a course release
 
