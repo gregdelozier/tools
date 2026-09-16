@@ -4,6 +4,20 @@ These tools build and check student-facing course sites from a working course re
 Course-specific settings and the list of released chapters live in the course's
 `release.json` file.
 
+## Start a new course
+
+```sh
+~/courses/tools/new_course.py operating-systems \
+    --title "Operating Systems" \
+    --description "Processes, memory, files, concurrency, and operating-system design."
+```
+
+This creates `~/courses/operating-systems/working` and
+`~/courses/operating-systems/active`, initializes both as local Git repositories,
+and builds the initial student site. Add `--github` only when the corresponding
+private working repository and public student repository should also be created
+and pushed.
+
 ## Build a release
 
 ```sh

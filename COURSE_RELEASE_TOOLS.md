@@ -64,6 +64,34 @@ policy with the course. A change to link checking or code display is made once.
 A change to the Advanced Database chapter list does not affect Structure of
 Programming Languages.
 
+## Starting a new course
+
+The new-course tool creates the standard working and active repositories, an
+initial `release.json`, shared-tool launchers, authoring directories, and an
+empty generated course site. For example:
+
+```sh
+~/courses/tools/new_course.py operating-systems \
+    --title "Operating Systems" \
+    --description "Processes, memory, files, concurrency, and operating-system design."
+```
+
+By default, the command creates `~/courses/operating-systems/working` and
+`~/courses/operating-systems/active`. Both are initialized as local Git
+repositories with an initial commit. The working repository begins with empty
+`chapters`, `slides`, `code`, and `notes` directories. The active repository
+contains only the generated student site and its repository metadata.
+
+The scaffolder refuses to replace a nonempty course directory. This makes it
+safe to rerun a command after correcting its arguments without risking an
+existing class.
+
+GitHub creation is separate because it changes external state. Add `--github`
+when that is intended. The default owners create a private working repository
+under `gregdelozier` and a public active repository under `kentcs`, both using
+the course slug as the repository name. Owner names and the base directory are
+command-line options.
+
 ## Building a course release
 
 From anywhere, run the shared builder with the working repository path:
@@ -192,14 +220,3 @@ The build and validation steps are intentionally separate. A successful build
 means the requested files could be assembled. A successful check means the
 assembled result satisfies the release rules that can be tested automatically.
 Neither replaces visual review of documents, slides, and pages.
-
-## Extending the tools
-
-Shared behavior belongs in this repository. Course-specific wording and choices
-belong in `release.json`. That boundary keeps the tools reusable without making
-the configuration into a programming language of its own.
-
-When a new course needs the same release model, start with a `release.json`, add
-the small launchers, and run a preview build outside the repository. Add a new
-configuration field only when the classes genuinely need different behavior.
-If all courses need the same behavior, change the shared implementation instead.
