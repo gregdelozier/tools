@@ -140,8 +140,10 @@ class ReleaseBuilder:
         cards = "".join(self.card(links[c["number"]]["index"], f"Chapter {int(c['number'])}: {c['title']}", c["description"]) for c in self.chapters())
         repo = self.site["repository"]
         details = f"        <p>{html.escape(self.site['details'])}</p>\n" if self.site.get("details") else ""
+        pages = "".join(self.card(page["filename"], page["title"], page.get("description", "")) for page in self.site.get("pages", []))
         body = f"""        <h1>{html.escape(self.config['course_title'])}</h1>
 {details}        <p class="intro">{html.escape(self.site['intro'])}</p>
+{pages}
         <div class="toc-section">
             <h2>Chapters</h2>
 {cards}        </div>
@@ -229,6 +231,8 @@ class ReleaseBuilder:
             index.parent.mkdir(parents=True, exist_ok=True)
             index.write_text(self.render_chapter_index(chapter, local_links))
             links[key]["index"] = self.relative(index)
+        for page in self.site.get("pages", []):
+            self.copy_file(page["source"], self.output / page["filename"])
         (self.output / "index.html").write_text(self.render_index(links))
         self.write_legacy_urls()
         if self.config.get("release_readme"):
