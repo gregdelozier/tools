@@ -7,3 +7,4 @@ md-to-pdf/venv/
 !COURSE_RELEASE_TOOLS.pdf
 .pytest_cache/
 .venv/
+.private*

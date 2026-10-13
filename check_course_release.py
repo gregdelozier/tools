@@ -5,9 +5,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
+
+# Keep shared helpers importable through course-local runpy launchers.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from release_extras import extra_files
+from release_policy import PRIVATE_SUFFIXES, private_path
 
 
 class Links(HTMLParser):
@@ -29,13 +35,26 @@ def check(root: Path, site: Path) -> list[str]:
     config = json.loads((root / "release.json").read_text())
     validation = config.get("validation", {})
     errors: list[str] = []
+    extras = extra_files(root, config)
+    if extras and not (site / "extras/index.html").is_file():
+        errors.append("Missing extras index: extras/index.html")
+    for relative, source in extras.items():
+        destination = site / relative
+        if not destination.is_file():
+            errors.append(f"Missing extras file: {relative}")
+        elif destination.read_bytes() != source.read_bytes():
+            errors.append(f"Extras differs: {relative}")
     allowed_markdown = {site / "README.md"} if config.get("release_readme") else set()
-    private_suffixes = set(validation.get("private_suffixes", [".md", ".mmd", ".pyc"]))
+    private_suffixes = PRIVATE_SUFFIXES | set(validation.get("private_suffixes", []))
     skip_link_parts = set(validation.get("skip_link_parts", ["templates"]))
     for path in site.rglob("*"):
         if ".git" in path.parts or not path.is_file():
             continue
-        if path.suffix in private_suffixes and path not in allowed_markdown:
+        relative = path.relative_to(site)
+        generated_extras_index = relative == Path("extras/index.html") and bool(extras)
+        if relative.parts[0] == "extras" and relative not in extras and not generated_extras_index:
+            errors.append(f"Unexpected extras file: {relative}")
+        if (private_path(relative) or path.suffix.lower() in private_suffixes) and path not in allowed_markdown:
             errors.append(f"Private source: {path.relative_to(site)}")
         if path.suffix != ".html":
             continue

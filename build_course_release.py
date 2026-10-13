@@ -8,8 +8,15 @@ import html
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import quote
+
+# Course-local launchers use runpy, which does not add this directory to sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from release_extras import extra_files
+from release_policy import private_name, private_path
 
 
 TOOLS = Path(__file__).resolve().parent
@@ -34,19 +41,35 @@ class ReleaseBuilder:
 
     def copy_file(self, source: str, dest: Path) -> None:
         src = self.root / source
+        if private_path(src.relative_to(self.root)) or private_path(dest.relative_to(self.output)):
+            raise ValueError(f"Refusing to publish private source: {source}")
         if not src.exists():
             raise FileNotFoundError(src)
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
 
+    def slide_pdf(self, item: dict) -> Path:
+        source = self.root / item["source"]
+        pdf = source.with_suffix(".pdf")
+        if not self.skip_build:
+            node = shutil.which("node", path="/opt/homebrew/bin:/usr/local/bin") or shutil.which("node")
+            if not node:
+                raise RuntimeError("Node.js is required to export slides")
+            subprocess.run([node, str(TOOLS / "export_slides_pdf.mjs"), str(source), str(pdf)], check=True, timeout=180)
+        if not pdf.exists():
+            raise FileNotFoundError(f"Build the slide PDF before using --skip-build: {pdf}")
+        return pdf
+
     def ignored(self, _directory: str, names: list[str]) -> set[str]:
         release = self.config.get("release", {})
         ignored_names = set(release.get("exclude_names", []))
         suffixes = tuple(release.get("exclude_suffixes", []))
-        return ignored_names | {name for name in names if suffixes and name.endswith(suffixes)}
+        return ignored_names | {name for name in names if private_name(name) or (suffixes and name.endswith(suffixes))}
 
     def copy_tree(self, source: str, dest: Path) -> None:
         src = self.root / source
+        if private_path(src.relative_to(self.root)) or private_path(dest.relative_to(self.output)):
+            raise ValueError(f"Refusing to publish private source: {source}")
         if not src.exists():
             raise FileNotFoundError(src)
         shutil.copytree(src, dest, ignore=self.ignored)
@@ -136,11 +159,26 @@ class ReleaseBuilder:
     def card(href: str, title: str, description: str) -> str:
         return f'            <a href="{html.escape(href)}" class="toc-link">\n                {html.escape(title)}\n                <div class="description">{html.escape(description)}</div>\n            </a>\n'
 
-    def render_index(self, links: dict[str, dict[str, str]]) -> str:
+    def render_extras_index(self, extras: dict[Path, Path]) -> str:
+        cards = []
+        for relative in sorted(extras):
+            local = relative.relative_to("extras")
+            if any(part in ("assets", "slide-assets") for part in local.parts[:-1]):
+                continue
+            if local.suffix.lower() in (".css", ".js", ".svg", ".png", ".jpg", ".woff", ".woff2"):
+                continue
+            cards.append(self.card(quote(local.as_posix()), local.as_posix(), ""))
+        body = '<h1>Extras</h1>\n' + "".join(cards)
+        body += '<p><a href="../index.html">Back to chapters</a></p>\n'
+        return self.render_page(f"Extras: {self.config['course_title']}", body)
+
+    def render_index(self, links: dict[str, dict[str, str]], has_extras: bool = False) -> str:
         cards = "".join(self.card(links[c["number"]]["index"], f"Chapter {int(c['number'])}: {c['title']}", c["description"]) for c in self.chapters())
         repo = self.site["repository"]
         details = f"        <p>{html.escape(self.site['details'])}</p>\n" if self.site.get("details") else ""
         pages = "".join(self.card(page["filename"], page["title"], page.get("description", "")) for page in self.site.get("pages", []))
+        if has_extras:
+            pages += self.card("extras/index.html", "Extras", "Supplemental slides and documents.")
         body = f"""        <h1>{html.escape(self.config['course_title'])}</h1>
 {details}        <p class="intro">{html.escape(self.site['intro'])}</p>
 {pages}
@@ -160,6 +198,8 @@ class ReleaseBuilder:
             cards.append(self.card(links["chapter"], chapter["title"], f"Chapter {int(chapter['number'])} workbook."))
         if "slides" in links:
             cards.append(self.card(links["slides"], "Slides", "Slide deck for class discussion."))
+        if "slides_pdf" in links:
+            cards.append(self.card(links["slides_pdf"], "Slides (PDF)", "One slide per page, for reading or printing."))
         if "code" in links:
             cards.append(self.card(links["code"], "Code", chapter.get("code_description", self.site["code_description"])))
         cards.extend(self.card(f"readings/{r['filename']}", r["title"], r["description"]) for r in chapter.get("readings", []))
@@ -198,6 +238,7 @@ class ReleaseBuilder:
                 self.write_redirect(self.output / "topics" / f"topic-{chapter['number']}-{chapter['slug']}.html", f"../{base.name}/index.html")
 
     def build(self) -> None:
+        extras = extra_files(self.root, self.config)
         self.output.mkdir(parents=True, exist_ok=True)
         (self.output / ".nojekyll").write_text("")
         links: dict[str, dict[str, str]] = {}
@@ -215,6 +256,11 @@ class ReleaseBuilder:
                 if kind == "slides" and item.get("assets"):
                     self.copy_tree(item["assets"], base / "slides/slide-assets")
                 links[key][kind] = self.relative(dest)
+                if kind == "slides" and item.get("pdf", True):
+                    pdf = self.slide_pdf(item)
+                    pdf_dest = dest.with_suffix(".pdf")
+                    self.copy_file(str(pdf), pdf_dest)
+                    links[key]["slides_pdf"] = self.relative(pdf_dest)
             if chapter.get("code"):
                 dest = base / "code"
                 self.copy_tree(chapter["code"]["source"], dest)
@@ -224,7 +270,7 @@ class ReleaseBuilder:
                 source = self.build_reading(reading)
                 dest = base / "readings" / reading["filename"]
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, dest)
+                self.copy_file(str(source), dest)
             prefix = self.relative(base) + "/"
             local_links = {name: path.removeprefix(prefix) for name, path in links[key].items()}
             index = base / "index.html"
@@ -233,7 +279,11 @@ class ReleaseBuilder:
             links[key]["index"] = self.relative(index)
         for page in self.site.get("pages", []):
             self.copy_file(page["source"], self.output / page["filename"])
-        (self.output / "index.html").write_text(self.render_index(links))
+        for relative, source in extras.items():
+            self.copy_file(str(source), self.output / relative)
+        if extras:
+            (self.output / "extras/index.html").write_text(self.render_extras_index(extras))
+        (self.output / "index.html").write_text(self.render_index(links, bool(extras)))
         self.write_legacy_urls()
         if self.config.get("release_readme"):
             (self.output / "README.md").write_text(self.config["release_readme"].rstrip() + "\n")
