@@ -48,6 +48,9 @@ def check(root: Path, site: Path) -> list[str]:
     private_suffixes = PRIVATE_SUFFIXES | set(validation.get("private_suffixes", []))
     skip_link_parts = set(validation.get("skip_link_parts", ["templates"]))
     for path in site.rglob("*"):
+        if ".git" not in path.relative_to(site).parts and path.is_symlink():
+            errors.append(f"Symlink in release: {path.relative_to(site)}")
+            continue
         if ".git" in path.parts or not path.is_file():
             continue
         relative = path.relative_to(site)

@@ -117,6 +117,13 @@ cannot be disabled by course configuration. Symlinks in extras are rejected
 instead of following them into other material. The release checker verifies
 that every published extras file matches its working source.
 
+All publication copy paths reject symlink files, directories, and ancestors
+below the course root, including public-looking links to private content.
+Reading conversion and slide export validate their input and PDF output paths
+before starting a subprocess. The checker also rejects symlinks in the release.
+The course root is the trusted boundary; these checks do not sandbox build
+scripts or inspect arbitrary dependencies read by those scripts.
+
 The builder maintains `extras/index.html` and links it from the course main
 page only when extras contain publishable files. The index links documents
 and slide HTML/PDF files; supporting asset directories are copied without

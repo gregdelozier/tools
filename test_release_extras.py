@@ -6,6 +6,7 @@ import tempfile
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 
 from build_course_release import ReleaseBuilder
 from check_course_release import check
@@ -137,6 +138,68 @@ class ExtrasTests(unittest.TestCase):
         self.build()
         self.assertFalse((self.site / "extras").exists())
         self.assertNotIn('href="extras/index.html"', (self.site / "index.html").read_text())
+
+    def test_public_symlinks_cannot_disguise_private_sources(self):
+        secret = self.write(".private-fixture/token.txt", b"Synthetic secret")
+        self.write("assets/keep.txt")
+        (self.root / "assets/public.txt").symlink_to(secret)
+        builder = ReleaseBuilder(self.root, self.site, True)
+        with self.assertRaises(ValueError):
+            builder.copy_file("assets/public.txt", self.site / "public.txt")
+        with self.assertRaises(ValueError):
+            builder.copy_tree("assets", self.site / "assets")
+        self.assertFalse(self.site.exists())
+
+    def test_tree_roots_nested_directories_and_ancestors_cannot_be_links(self):
+        self.write("original/sub/file.txt")
+        (self.root / "alias").symlink_to(self.root / "original")
+        builder = ReleaseBuilder(self.root, self.site, True)
+        for source in ["alias", "alias/sub"]:
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                builder.copy_tree(source, self.site / "tree")
+        with self.assertRaises(ValueError):
+            builder.copy_file("alias/sub/file.txt", self.site / "file.txt")
+        self.write("tree/keep.txt")
+        (self.root / "tree/nested").symlink_to(self.root / "original")
+        with self.assertRaises(ValueError):
+            builder.copy_tree("tree", self.site / "tree")
+
+    def test_render_inputs_and_outputs_reject_links_before_subprocess(self):
+        original = self.write("original.md", b"# Synthetic")
+        builder = ReleaseBuilder(self.root, self.site, False)
+        with patch("build_course_release.subprocess.run") as run:
+            for source in ["reading.md", "slides.html"]:
+                path = self.root / source
+                path.symlink_to(original)
+                with self.subTest(source=source), self.assertRaises(ValueError):
+                    if source.endswith(".md"):
+                        builder.build_reading({"source": source})
+                    else:
+                        builder.slide_pdf({"source": source})
+            self.write("safe.md")
+            self.write("safe.html")
+            (self.root / "safe.pdf").symlink_to(original)
+            with self.assertRaises(ValueError):
+                builder.build_reading({"source": "safe.md"})
+            with self.assertRaises(ValueError):
+                builder.slide_pdf({"source": "safe.html"})
+            run.assert_not_called()
+
+    def test_traversal_and_dangling_links_are_rejected(self):
+        builder = ReleaseBuilder(self.root, self.site, True)
+        (self.root / "dangling.txt").symlink_to(self.root / "absent")
+        for source in ["dangling.txt", "../outside.txt"]:
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                builder.copy_file(source, self.site / "file.txt")
+
+    def test_checker_rejects_output_symlinks(self):
+        self.build()
+        original = self.write("original.txt")
+        (self.site / "link.txt").symlink_to(original)
+        (self.site / "linked-dir").symlink_to(self.root)
+        errors = check(self.root, self.site)
+        self.assertIn("Symlink in release: link.txt", errors)
+        self.assertIn("Symlink in release: linked-dir", errors)
 
     def test_decks_pdfs_assets_and_generated_index(self):
         self.write("extras/deep-dive/deck.html", b'<script src="slide-assets/deck.js"></script>')

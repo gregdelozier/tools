@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -16,7 +17,7 @@ from urllib.parse import quote
 # Course-local launchers use runpy, which does not add this directory to sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from release_extras import extra_files
-from release_policy import private_name, private_path
+from release_policy import private_name, private_path, validate_source
 
 
 TOOLS = Path(__file__).resolve().parent
@@ -24,8 +25,8 @@ TOOLS = Path(__file__).resolve().parent
 
 class ReleaseBuilder:
     def __init__(self, root: Path, output: Path, skip_build: bool = False):
-        self.root = root
-        self.output = output
+        self.root = root.absolute()
+        self.output = output.absolute()
         self.skip_build = skip_build
         self.config = json.loads((root / "release.json").read_text())
         self.site = self.config["site"]
@@ -33,14 +34,14 @@ class ReleaseBuilder:
     def run_build(self, script: str) -> None:
         if self.skip_build:
             return
-        path = self.root / script
+        path = validate_source(self.root, self.root / script)
         if not path.exists():
             raise FileNotFoundError(path)
         command = ["python3", str(path)] if path.suffix == ".py" else ["bash", str(path)] if path.suffix == ".sh" else [str(path)]
         subprocess.run(command, cwd=path.parent, check=True)
 
     def copy_file(self, source: str, dest: Path) -> None:
-        src = self.root / source
+        src = validate_source(self.root, self.root / source)
         if private_path(src.relative_to(self.root)) or private_path(dest.relative_to(self.output)):
             raise ValueError(f"Refusing to publish private source: {source}")
         if not src.exists():
@@ -49,8 +50,8 @@ class ReleaseBuilder:
         shutil.copy2(src, dest)
 
     def slide_pdf(self, item: dict) -> Path:
-        source = self.root / item["source"]
-        pdf = source.with_suffix(".pdf")
+        source = validate_source(self.root, self.root / item["source"])
+        pdf = validate_source(self.root, source.with_suffix(".pdf"))
         if not self.skip_build:
             node = shutil.which("node", path="/opt/homebrew/bin:/usr/local/bin") or shutil.which("node")
             if not node:
@@ -67,21 +68,27 @@ class ReleaseBuilder:
         return ignored_names | {name for name in names if private_name(name) or (suffixes and name.endswith(suffixes))}
 
     def copy_tree(self, source: str, dest: Path) -> None:
-        src = self.root / source
+        src = validate_source(self.root, self.root / source)
         if private_path(src.relative_to(self.root)) or private_path(dest.relative_to(self.output)):
             raise ValueError(f"Refusing to publish private source: {source}")
         if not src.exists():
             raise FileNotFoundError(src)
+        # Preflight the whole included tree before copytree can follow any link.
+        for directory, dirs, files in os.walk(src, followlinks=False):
+            ignored = self.ignored(directory, dirs + files)
+            dirs[:] = [name for name in dirs if name not in ignored]
+            for name in dirs + [name for name in files if name not in ignored]:
+                validate_source(self.root, Path(directory) / name)
         shutil.copytree(src, dest, ignore=self.ignored)
 
     def build_reading(self, reading: dict) -> Path:
-        source = self.root / reading["source"]
+        source = validate_source(self.root, self.root / reading["source"], authoring=True)
         if not source.exists():
             raise FileNotFoundError(source)
+        result = validate_source(self.root, source.with_suffix(".pdf") if source.suffix == ".md" else source)
         if source.suffix == ".md" and not self.skip_build:
             converter = self.config.get("markdown_to_pdf", str(Path.home() / ".local/bin/md-to-pdf"))
             subprocess.run([converter, str(source)], cwd=source.parent, check=True)
-        result = source.with_suffix(".pdf") if source.suffix == ".md" else source
         if not result.exists():
             raise FileNotFoundError(result)
         return result

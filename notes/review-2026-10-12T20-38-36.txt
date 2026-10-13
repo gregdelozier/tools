@@ -1,0 +1,32 @@
+Shared course tools review - Codex
+Reviewed 3c0a0e4 and 7c3fca8; working tree initially clean.
+
+P1: Symlinks bypass mandatory private-source exclusions outside extras.
+build_course_release.py:42-49 and :69-75
+The guards check lexical names, but shutil.copy2 and shutil.copytree follow
+symlinks by default. A public-looking source can therefore copy content from
+a .private directory, or source/instructor material under a different name.
+The output checker cannot recover that provenance once the bytes have been
+copied to a normal public file, and reports no error.
+
+Reproduced in a temporary fixture:
+  .private-fixture/token.txt contains SYNTHETIC SECRET
+  assets/public.txt is a symlink to that file
+  copy_tree('assets', output/'assets') copies the synthetic secret
+  copy_file('assets/public.txt', output/'direct.txt') copies it too
+  check(root, output) returns []
+No real private files were read or copied.
+
+Recommended fix: reject symlink files, directories, and symlink ancestors
+throughout publication sources, as extras already does, or validate every
+resolved target and its containment before reading it. Cover direct files,
+tree roots, nested files/directories, and ancestor links with tests. Do not
+rely on the output checker to identify renamed private content. Reading
+conversion and slide export also need source validation before rendering
+when paths are configured through links.
+
+Verification: all 24 tests in test_course_layout and test_release_extras pass;
+git diff --check passes. Reviewed release guards/checker and migration logic.
+The ordinary .private names and Markdown cases are covered by the new tests;
+symlink bypasses are not. This is the one additional actionable finding from
+this pass. No source fixes, publication, commits, or pushes performed.

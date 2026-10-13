@@ -24,3 +24,23 @@ checked page 3 containing the new publication rules. git diff --check passes.
 
 Commit grouping: publishing/exclusion implementation and regression tests;
 then chapter-first migration/scaffolding, their tests, and updated documentation.
+
+2026-10-12 re-review of 3c0a0e4 and 7c3fca8:
+See notes/review-2026-10-12T20-38-36.txt. All 24 tests pass, but a P1 gap
+remains: public-looking symlinks outside extras can copy .private content
+through direct or tree copies, and the checker accepts the renamed output.
+Reproduced with synthetic temporary data only. No implementation changes.
+
+2026-10-12: Symlink bypass fixed.
+Direct copies validate every source component below the trusted course root.
+Tree copies preflight all included files and directories before copying any
+content. Reading conversion and slide export validate both source and PDF
+output paths before invoking subprocesses. Build-script paths are checked too.
+Traversal and dangling symlinks are rejected; the checker flags output links.
+Excluded material is skipped, not followed. The trusted root may have a
+platform alias (for example macOS /var); links beneath it are forbidden.
+This does not sandbox trusted build scripts or their arbitrary dependencies.
+
+Verification: 29 tests pass, including direct/root/nested/ancestor symlinks,
+synthetic private targets, dangling links, traversal, pre-subprocess rejection,
+and checker rejection of release symlinks. No real private content used.
