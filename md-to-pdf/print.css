@@ -4,6 +4,7 @@
 body { font-family: "Times New Roman", serif; font-variant-numeric: lining-nums tabular-nums; font-size: 10.5pt; line-height: 1.42; color: #202020; }
 h1, h2, h3, h4 { line-height: 1.18; break-after: avoid; font-weight: bold; }
 h1 { font-size: 23pt; margin: 0 0 20pt; }
+.author { font-size: 9pt; color: #555; margin: -10pt 0 18pt; break-after: avoid; }
 h2 { font-size: 15pt; margin: 20pt 0 8pt; }
 h3 { font-size: 12pt; margin: 14pt 0 6pt; }
 p { margin: 0 0 9pt; orphans: 3; widows: 3; }

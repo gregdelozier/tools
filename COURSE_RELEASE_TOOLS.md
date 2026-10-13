@@ -50,6 +50,8 @@ The shared tools live in `~/courses/tools`:
 tools/
   build_course_release.py
   check_course_release.py
+  migrate_course_layout.py
+  new_course.py
   code_viewer.html
   md-to-pdf/
   COURSE_RELEASE_TOOLS.md
@@ -78,9 +80,15 @@ empty generated course site. For example:
 
 By default, the command creates `~/courses/operating-systems/working` and
 `~/courses/operating-systems/active`. Both are initialized as local Git
-repositories with an initial commit. The working repository begins with empty
-`chapters`, `slides`, `code`, and `notes` directories. The active repository
+repositories with an initial commit. The working repository begins with an
+unpublished `chapter-00-introduction` scaffold. The active repository
 contains only the generated student site and its repository metadata.
+
+Each working chapter keeps its Markdown source and generated PDF directly in
+`chapter-NN-title/`. Its `code/`, `slides/`, and `readings/` directories hold the
+related material. The initial slide Markdown and speaker notes are placeholders;
+they are not a built deck. Only finished components explicitly listed in
+`release.json` enter the student site. Index pages are generated in `release/`.
 
 The scaffolder refuses to replace a nonempty course directory. This makes it
 safe to rerun a command after correcting its arguments without risking an
@@ -92,6 +100,33 @@ under `gregdelozier` and a public active repository under `kentcs`, both using
 the course slug as the repository name. The command also enables GitHub Pages
 for the active repository, served from `/` on its `main` branch. Owner names and
 the base directory are command-line options.
+
+## Converting existing courses
+
+`migrate_course_layout.py COURSE` previews the move from separate chapter, code,
+and slide collections to chapter directories. `--apply` first saves a complete
+backup outside the working repository, including uncommitted work. Use
+`--backup PATH` to select a new destination. A JSON report beside the backup
+records file moves and rewritten references.
+
+The migration updates source paths in `release.json` without adding released
+chapters or changing public filenames. It also updates local path references in
+documentation and build scripts. Existing runnable code is preserved byte for
+byte. Slide source and HTML use `slides-NN-title` filenames; speaker notes remain
+separate. Configured readings and matching lecture notes move beside their chapter.
+
+Number conflicts are errors, not an invitation to guess. For older code from a
+different chapter sequence, the explicit `--archive-conflicting-code` option moves
+it to `archive/legacy-code`. Unknown directories, symlinks, and destination file
+collisions require review. Running the script again after a completed migration
+makes no changes. An interrupted migration should be recovered from its backup
+before retrying.
+
+The migration never touches active repositories or pushes anything. Compare a
+`--skip-build` release before and after migration, then run full builds and the
+release checker. The first comparison verifies that changing the organization
+has not changed which files students receive. Full builds verify that the moved
+sources and build scripts still work.
 
 ## Building a course release
 
@@ -112,6 +147,23 @@ and assembles the selected files. It creates chapter landing pages and code
 browsers, copies readings and slide assets, and writes the top-level course
 index. It builds into a temporary sibling directory first. The existing
 `release/` directory is replaced only after the new build completes.
+
+Slide decks are also exported to PDF using Reveal.js print layout and the same
+browser runtime already used for Mermaid. Each PDF has one slide per page and
+excludes speaker notes. Chapter contents pages link both HTML and PDF versions.
+Setting `"pdf": false` on a slide entry disables that export; otherwise an
+existing slide PDF is required when using `--skip-build`.
+
+Root-level `extras/` supplies supplemental rendered documents and their
+supporting assets. The builder generates its index only when public files
+exist. Markdown, Mermaid source, instructor notes, and speaker notes stay in
+working. Files and directories starting with `.private` are excluded at every
+depth, independent of course configuration. The release checker rejects these
+private files even if they are inserted into the output manually.
+
+The slide and chapter sources include a small author line, `Gregory S. DeLozier,
+PhD`, under the title. New-course templates include the same byline. It is part
+of the source material, so rebuilding does not remove it.
 
 For a quick preview that uses already-built PDFs and slides:
 

@@ -116,9 +116,18 @@ def main() -> None:
     working = course_root / "working"
     active = course_root / "active"
 
-    for directory in (working / "chapters", working / "slides", working / "code", working / "notes"):
+    chapter = working / "chapter-00-introduction"
+    for directory in (chapter / "slides", chapter / "code", chapter / "readings", working / "archive"):
         directory.mkdir(parents=True, exist_ok=True)
         (directory / ".gitkeep").write_text("")
+    write(chapter / "chapter-00-introduction.md", "# Introduction\n\n::: {.author}\nGregory S. DeLozier, PhD\n:::\n\n")
+    write(chapter / "slides/slides-00-introduction.md", '# Introduction\n\nCourse introduction\n\n<hr style="border:0;border-top:1px solid #c3cbd0;margin:32px 0 18px">\n\n<p class="slide-author" style="font-size:22px">Gregory S. DeLozier, PhD</p>\n\nNote:\n\n')
+    write(chapter / "slides/speaker-notes.md", "# Introduction: Speaker Notes\n\n")
+    write(chapter / "build_pdf.sh", '''#!/usr/bin/env bash
+set -euo pipefail
+chapter_dir="$(cd "$(dirname "$0")" && pwd)"
+"$HOME/.local/bin/md-to-pdf" "$chapter_dir/chapter-00-introduction.md"
+''', True)
 
     public_url = f"https://github.com/{args.active_owner}/{args.slug}"
     site = {
@@ -136,27 +145,36 @@ def main() -> None:
         site["details"] = args.details
 
     config = {
+        "layout": "chapter-first",
         "course_title": args.title,
+        "release_readme": f"# {args.title}\n\nStudent materials: {public_url}\n",
         "site": site,
         "release": {
-            "exclude_names": [".DS_Store", "__pycache__", "notes.js", ".pytest_cache", ".venv"],
+            "exclude_names": [".DS_Store", ".gitkeep", ".git", "node_modules", "__pycache__", "notes.js", ".pytest_cache", ".venv"],
             "exclude_suffixes": [".md", ".mmd", ".pyc", "-wal", "-shm"],
         },
         "chapters": [],
     }
     write(working / "release.json", json.dumps(config, indent=2) + "\n")
-    write(working / ".gitignore", ".DS_Store\n__pycache__/\n*.pyc\n.venv/\n")
+    write(working / ".gitignore", ".DS_Store\n__pycache__/\n*.pyc\n.venv/\nnode_modules/\n.private*\n")
     write(
         working / "README.md",
-        f"# {args.title}\n\nWorking course repository. Build the student release with `python3 tools/build_release.py`.\n",
+        f"# {args.title}\n\n"
+        "Working course repository. Each `chapter-NN-title/` contains the chapter Markdown\n"
+        "and PDF, with `slides/`, `code/`, and `readings/` beside them. Speaker notes stay\n"
+        "in `slides/speaker-notes.md` and must not be embedded in public slide HTML.\n\n"
+        "The introduction is an unpublished scaffold. Rename it as needed and add content.\n"
+        "Nothing is released until explicitly added to the `chapters` list in `release.json`.\n"
+        "The shared tools README contains a chapter configuration example.\n\n"
+        "Build with `python3 tools/build_release.py`, then check with\n"
+        "`python3 tools/check_release.py`. Preview `release/index.html` locally before\n"
+        "copying that release to active. Never copy an entire working chapter to active.\n",
     )
     write(working / "tools/build_release.py", launcher("release builder", "build_course_release.py"), True)
     write(working / "tools/check_release.py", launcher("release checker", "check_course_release.py"), True)
 
     run([str(TOOLS / "build_course_release.py"), str(working)], working)
     shutil.copytree(working / "release", active)
-    write(active / "README.md", f"# {args.title}\n\nStudent materials: {public_url}\n")
-    write(active / ".gitignore", ".DS_Store\n__pycache__/\n*.pyc\n")
 
     if not args.no_git:
         initialize_git(working, "Create course working repository")

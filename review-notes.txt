@@ -1,0 +1,26 @@
+2026-10-12: Finish pending course tooling and publication exclusions
+
+Preserved the pending chapter-first migration/scaffolding, slide-PDF release
+integration, author styling, and documentation changes. Added a shared
+non-overridable release policy for .private-prefixed files/directories,
+Markdown/Mermaid source, instructor/speaker notes, assignments, dependencies,
+and caches. Extras now respects configured suffix filters too. Direct copies
+and directory copies use the policy; slide PDFs and readings use the guarded
+copy helper. The checker independently rejects private output, even when
+validation.private_suffixes is empty. Generated root README remains allowed.
+
+Regression tests cover nested synthetic private data, authoring-only extras,
+case-insensitive Markdown suffixes, alternate note names, direct/tree copy
+paths, checker rejection outside extras, and the generated README exception.
+No real private data was used in tests.
+
+Verification: all 24 tests in test_course_layout and test_release_extras pass.
+Built Structures and Advanced Database releases with --skip-build into /tmp,
+then ran the release checker on each: both pass links, scope, exclusions, and
+unchanged-code checks. Active repositories and working release folders were
+not changed. This verifies packaging of existing artifacts, not fresh builds
+of every course document. Rebuilt COURSE_RELEASE_TOOLS.pdf and visually
+checked page 3 containing the new publication rules. git diff --check passes.
+
+Commit grouping: publishing/exclusion implementation and regression tests;
+then chapter-first migration/scaffolding, their tests, and updated documentation.
