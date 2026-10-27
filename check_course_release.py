@@ -102,6 +102,9 @@ def main() -> None:
     parser.add_argument("--site", type=Path, help="Release directory (default: COURSE/release)")
     args = parser.parse_args()
     root = args.course.resolve()
+    from course_driver import dispatch
+    if dispatch(root, args, 'check'):
+        return
     site = args.site.resolve() if args.site else root / "release"
     errors = check(root, site)
     if errors:

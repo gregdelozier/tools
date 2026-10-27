@@ -1,0 +1,7 @@
+Course-specific release driver dispatch
+
+Added course_driver.py and a guarded dispatch hook to the shared build/check CLI entry points. A course may select its driver through course_release_driver in release.json. Existing courses without that field keep the standard behavior. The path is checked with validate_source before loading. Build output/skip-build and check site flags are forwarded, with sys.argv restored after the call. This lets Structures honor independently held chapter and lecture components even when invoked through the shared commands.
+
+Four new dispatcher tests pass: build flags/argv restoration, check site forwarding, unchanged default driver behavior, and traversal rejection. Existing shared layout tests (9) and release-extras/policy tests (22) pass. Actual shared CLI preview/build checking succeeds for Structures. The course-specific builder was also tested against a clean snapshot of the previously committed shared helpers, so it does not depend on the other uncommitted shared-tool edits.
+
+Preserved extensive pre-existing uncommitted tooling work. Only the new dispatcher, its tests, this note, and the two CLI hook insertions are included in this commit. Existing crossword/release-policy/layout edits are not swept into it. No active course, release selection, document builds, or live publication changed.

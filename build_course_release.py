@@ -314,6 +314,9 @@ def main() -> None:
     parser.add_argument("--skip-build", action="store_true", help="Use existing PDF and slide build products")
     args = parser.parse_args()
     root = args.course.resolve()
+    from course_driver import dispatch
+    if dispatch(root, args, 'build'):
+        return
     final = args.output.resolve() if args.output else root / "release"
     final.parent.mkdir(parents=True, exist_ok=True)
     staged = Path(tempfile.mkdtemp(prefix=f".{final.name}-build-", dir=final.parent))
