@@ -4,6 +4,50 @@ These tools build and check student-facing course sites from a working course re
 Course-specific settings and the list of released chapters live in the course's
 `release.json` file.
 
+## Publish chapters and lectures
+
+The same selection, build, and check tools work for every course.
+Run these from its working repository:
+
+```sh
+python3 ~/courses/tools/activate_course.py chapter 11
+python3 ~/courses/tools/activate_course.py lecture 11 0
+python3 ~/courses/tools/build_course_release.py
+python3 ~/courses/tools/check_course_release.py
+```
+
+Selection commands update `release.json`; building stages the selected files
+in `release/`. Copying the checked release to active and pushing it remains
+a separate step. Use `--course PATH` on the selection command, or a positional
+course path on the build/check commands, when running outside working.
+
+Publishing a chapter includes its PDF, all its student code, available student
+crosswords, configured readings, and any chapter `slides/`. Lecture directories
+are selected separately:
+
+```text
+chapter-11-functions/
+  chapter-11-functions.md
+  chapter-11-functions.pdf
+  code/
+  slides/                       # included with the chapter, when present
+  lecture-00-definitions/        # published separately
+    lecture-00-definitions.md
+    lecture-00-definitions.html
+    lecture-00-definitions.pdf
+    slide-assets/
+  lecture-01-implementation/     # published separately
+    ...
+```
+
+A chapter can have one lecture or several. There is no required lecture count.
+Lecture directories may also live under `lectures/`. Existing flat decks such
+as `lectures/lecture-0-functions.md` continue to work.
+Publishing a lecture includes its HTML/PDF deck and assets under the same
+relative directory. A PDF-only lecture is supported. Speaker notes, private
+files, answer keys, and authoring/build files stay in working. Code remains
+together at chapter level.
+
 ## Start a new course
 
 ```sh

@@ -47,3 +47,11 @@ Source and installed dependencies live in `~/courses/tools/md-to-pdf`. The
 executable is available through the `~/.local/bin/md-to-pdf` symlink. Node
 dependencies are locked in `package-lock.json`, and Python versions are
 recorded in `requirements.txt`.
+
+## Chapter crosswords
+
+Building a substantive `chapter-*.md` manuscript inside a `chapter-*` directory also ensures that its `exercises/` directory contains a student crossword PDF. Existing puzzles are preserved. Outlines under 250 words and non-chapter documents are skipped.
+
+For a missing puzzle, the builder uses `exercises/crossword-entries.json` when present: an array of `["ANSWER", "Clue"]` pairs. Otherwise it extracts definition clues from the chapter. Review automatically extracted clues before release. The layout seed comes from the chapter text and selected clues; fixed ordering and invariant PDF metadata make repeated generation byte-identical with the same source, clues, generator, and dependencies.
+
+Generated outputs are `generated-crossword.pdf`, `.private-generated-crossword-key.pdf`, and private grid/source records. Only the student PDF is eligible for release. Delete `generated-crossword.pdf` to regenerate after revising source or clues. Authoring JSON and Python stay in working.

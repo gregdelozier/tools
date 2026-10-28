@@ -7,13 +7,19 @@ import sys
 import tempfile
 import unittest
 
-from build_course_release import ReleaseBuilder
+from build_course_release import ReleaseBuilder, chapter_sort_key, chapter_label
 from check_course_release import check
 from migrate_course_layout import file_moves, migrate, plan
 from new_course import DEFAULT_THEME
 
 
 class LayoutTests(unittest.TestCase):
+    def test_chapter_suffix_numbering(self):
+        self.assertEqual(sorted(["10", "01", "00a", "00", "00b"], key=chapter_sort_key),
+                         ["00", "00a", "00b", "01", "10"])
+        self.assertEqual(chapter_label("00a"), "0a")
+        self.assertEqual(chapter_label("01"), "1")
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

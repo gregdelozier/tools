@@ -1,0 +1,12 @@
+Review: shared chapter and lecture publication
+
+No remaining findings in the changed workflow.
+Moved chapter/lecture selection and the builder/checker from Structures into the shared tools. Structures now contains launchers only; its course-specific driver and duplicate tests were removed.
+Chapter releases include their code and existing slides/. Named lecture directories are separately selected and preserve their relative paths. Existing flat lectures/ decks remain supported. There is no fixed lecture count.
+New course scaffolds include the shared selection launcher.
+Preserved legacy reading destinations within their chapter and existing template-link validation exemptions.
+Private files, instructor notes, and crossword keys remain excluded from student releases. Working crossword keys keep ordinary names.
+
+Verification: 47 shared publishing/layout/driver/extras tests and 2 crossword tests passed. Structures' existing release passed the shared checker unchanged. Advanced Database and Software Engineering built and passed checks in temporary previews. A temporary new course scaffold built successfully, and its activation launcher ran. Named lecture directories, PDF-only lectures, chapter-level slides, chapter suffixes, missing/stale files, and symlink rejection have regression coverage.
+
+No chapter or slide source content changed, so no content PDF rebuild was needed. No active checkout was modified. Selection and staging still precede copying and pushing a student release.

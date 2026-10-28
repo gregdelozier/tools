@@ -1,0 +1,5 @@
+Crossword release support review
+
+Added crossword_files helper, automatic selected-chapter PDF copy and chapter index links, and missing/byte-difference checks. Discovery only scans immediate exercises directory for crossword PDF filenames; private-name and configured exclusions apply, symlinks rejected by existing source validator. Authoring Python/JSON and .venv not copied.
+
+python3 -m unittest test_release_extras test_course_layout: 30 passed, including selected/unselected chapters, authoring/private exclusions, index link, byte identity, and missing/changed crossword detection. No active repo changed or published.

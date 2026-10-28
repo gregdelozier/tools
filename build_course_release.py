@@ -7,6 +7,7 @@ import argparse
 import html
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -16,11 +17,23 @@ from urllib.parse import quote
 
 # Course-local launchers use runpy, which does not add this directory to sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from release_extras import extra_files
+from release_extras import extra_files, crossword_files
 from release_policy import private_name, private_path, validate_source
 
 
 TOOLS = Path(__file__).resolve().parent
+
+
+def chapter_sort_key(number):
+    match = re.fullmatch(r"(\d+)([A-Za-z]*)", str(number))
+    if not match:
+        raise ValueError(f"Invalid chapter number: {number}")
+    return int(match[1]), match[2].lower()
+
+
+def chapter_label(number):
+    numeric, suffix = chapter_sort_key(number)
+    return f"{numeric}{suffix}"
 
 
 class ReleaseBuilder:
@@ -180,7 +193,7 @@ class ReleaseBuilder:
         return self.render_page(f"Extras: {self.config['course_title']}", body)
 
     def render_index(self, links: dict[str, dict[str, str]], has_extras: bool = False) -> str:
-        cards = "".join(self.card(links[c["number"]]["index"], f"Chapter {int(c['number'])}: {c['title']}", c["description"]) for c in self.chapters())
+        cards = "".join(self.card(links[c["number"]]["index"], f"Chapter {chapter_label(c['number'])}: {c['title']}", c["description"]) for c in self.chapters())
         repo = self.site["repository"]
         details = f"        <p>{html.escape(self.site['details'])}</p>\n" if self.site.get("details") else ""
         pages = "".join(self.card(page["filename"], page["title"], page.get("description", "")) for page in self.site.get("pages", []))
@@ -202,7 +215,7 @@ class ReleaseBuilder:
     def render_chapter_index(self, chapter: dict, links: dict[str, str]) -> str:
         cards = []
         if "chapter" in links:
-            cards.append(self.card(links["chapter"], chapter["title"], f"Chapter {int(chapter['number'])} workbook."))
+            cards.append(self.card(links["chapter"], chapter["title"], f"Chapter {chapter_label(chapter['number'])} workbook."))
         if "slides" in links:
             cards.append(self.card(links["slides"], "Slides", "Slide deck for class discussion."))
         if "slides_pdf" in links:
@@ -210,7 +223,9 @@ class ReleaseBuilder:
         if "code" in links:
             cards.append(self.card(links["code"], "Code", chapter.get("code_description", self.site["code_description"])))
         cards.extend(self.card(f"readings/{r['filename']}", r["title"], r["description"]) for r in chapter.get("readings", []))
-        body = f"""        <div class="chapter-label">Chapter {int(chapter['number'])}</div>
+        cards.extend(self.card(url, "Crossword", "Printable concept review.")
+                     for name, url in links.items() if name.startswith("crossword:"))
+        body = f"""        <div class="chapter-label">Chapter {chapter_label(chapter['number'])}</div>
         <h1 class="chapter-title">{html.escape(chapter['title'])}</h1>
         <p class="intro">{html.escape(chapter['description'])}</p>
         <div class="toc-section">
@@ -218,10 +233,10 @@ class ReleaseBuilder:
 {"".join(cards)}        </div>
         <p><a href="../index.html">Back to chapters</a></p>
 """
-        return self.render_page(f"Chapter {int(chapter['number'])}: {chapter['title']}", body)
+        return self.render_page(f"Chapter {chapter_label(chapter['number'])}: {chapter['title']}", body)
 
     def chapters(self) -> list[dict]:
-        return sorted(self.config["chapters"], key=lambda item: int(item["number"]))
+        return sorted(self.config["chapters"], key=lambda item: chapter_sort_key(item["number"]))
 
     @staticmethod
     def write_redirect(path: Path, target: str, preserve_fragment: bool = False) -> None:
@@ -278,6 +293,9 @@ class ReleaseBuilder:
                 dest = base / "readings" / reading["filename"]
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 self.copy_file(str(source), dest)
+            for relative, source in crossword_files(self.root, chapter, self.config).items():
+                self.copy_file(str(source), self.output / relative)
+                links[key]["crossword:" + source.name] = relative.as_posix()
             prefix = self.relative(base) + "/"
             local_links = {name: path.removeprefix(prefix) for name, path in links[key].items()}
             index = base / "index.html"
@@ -318,10 +336,13 @@ def main() -> None:
     if dispatch(root, args, 'build'):
         return
     final = args.output.resolve() if args.output else root / "release"
+    if root.is_relative_to(final) or (final.is_relative_to(root) and final != root / 'release') or final.is_relative_to(root.parent / 'active'):
+        raise ValueError('Build to release/ or a preview directory, not the working or active checkout')
     final.parent.mkdir(parents=True, exist_ok=True)
     staged = Path(tempfile.mkdtemp(prefix=f".{final.name}-build-", dir=final.parent))
     try:
-        ReleaseBuilder(root, staged, args.skip_build).build()
+        from chapter_release import ReleaseBuilder as ChapterReleaseBuilder
+        ChapterReleaseBuilder(root, staged, args.skip_build).build()
         replace_output(staged, final)
     except Exception:
         shutil.rmtree(staged, ignore_errors=True)

@@ -172,6 +172,7 @@ chapter_dir="$(cd "$(dirname "$0")" && pwd)"
     )
     write(working / "tools/build_release.py", launcher("release builder", "build_course_release.py"), True)
     write(working / "tools/check_release.py", launcher("release checker", "check_course_release.py"), True)
+    write(working / "tools/activate.py", launcher("release selection", "activate_course.py").replace("[str(COURSE)]", "[\"--course\", str(COURSE)]"), True)
 
     run([str(TOOLS / "build_course_release.py"), str(working)], working)
     shutil.copytree(working / "release", active)

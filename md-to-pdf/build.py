@@ -77,6 +77,8 @@ def main():
             staged_path = Path(staged.name)
         os.replace(staged_path, output)
         print(f'{output} ({count} Mermaid diagrams)')
+    from crossword import ensure_crossword
+    ensure_crossword(source)
 
 if __name__ == '__main__':
     try:

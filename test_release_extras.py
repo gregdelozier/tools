@@ -37,6 +37,30 @@ class ExtrasTests(unittest.TestCase):
     def build(self):
         ReleaseBuilder(self.root, self.site, skip_build=True).build()
 
+    def test_crosswords_selected_only_and_byte_identical(self):
+        config = json.loads((self.root / "release.json").read_text())
+        config["chapters"] = [{"number": "06", "slug": "ci", "title": "CI", "description": "Test"}]
+        self.write("release.json", json.dumps(config).encode())
+        name = "chapter-06-ci/exercises/ci-crossword.pdf"
+        self.write(name, b"Crossword PDF fixture")
+        for other in ["chapter-06-ci/exercises/build_crossword.py",
+                      "chapter-06-ci/exercises/crossword-data.json",
+                      "chapter-06-ci/exercises/.private-crossword.pdf",
+                      "chapter-06-ci/exercises/ci-crossword-key.pdf",
+                      "chapter-06-ci/exercises/crossword_answers.pdf",
+                      "chapter-06-ci/exercises/.venv/crossword.pdf",
+                      "chapter-07-later/exercises/crossword.pdf"]:
+            self.write(other)
+        self.build()
+        self.assertEqual(b"Crossword PDF fixture", (self.site / name).read_bytes())
+        self.assertEqual(["ci-crossword.pdf"], [f.name for f in (self.site / "chapter-06-ci/exercises").rglob("*")])
+        self.assertIn('href="exercises/ci-crossword.pdf"', (self.site / "chapter-06-ci/index.html").read_text())
+        self.assertEqual([], check(self.root, self.site))
+        (self.site / name).write_bytes(b"changed")
+        self.assertIn("Crossword differs: " + name, check(self.root, self.site))
+        (self.site / name).unlink()
+        self.assertIn("Missing crossword: " + name, check(self.root, self.site))
+
     def test_absent_extras(self):
         self.build()
         self.assertFalse((self.site / "extras").exists())

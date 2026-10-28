@@ -1,6 +1,7 @@
 """Non-overridable exclusions for student-facing course files."""
 
 from pathlib import Path
+import re
 
 
 PRIVATE_SUFFIXES = {".md", ".markdown", ".mmd", ".pyc"}
@@ -8,7 +9,9 @@ PRIVATE_SUFFIXES = {".md", ".markdown", ".mmd", ".pyc"}
 
 def private_name(name: str) -> bool:
     lower = name.lower()
-    return (lower.startswith(".private")
+    crossword_key = ("crossword" in lower and
+                     bool(set(re.split(r"[^a-z]+", lower)) & {"key", "keys", "answer", "answers", "solution", "solutions"}))
+    return (crossword_key or lower.startswith(".private")
             or lower in {"assignments", "instructor-notes", "speaker-notes",
                          ".git", "node_modules", "__pycache__"}
             or "speaker-notes" in lower or "instructor-notes" in lower

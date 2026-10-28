@@ -12,7 +12,7 @@ from urllib.parse import unquote, urlsplit
 
 # Keep shared helpers importable through course-local runpy launchers.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from release_extras import extra_files
+from release_extras import extra_files, crossword_files
 from release_policy import PRIVATE_SUFFIXES, private_path
 
 
@@ -44,6 +44,13 @@ def check(root: Path, site: Path) -> list[str]:
             errors.append(f"Missing extras file: {relative}")
         elif destination.read_bytes() != source.read_bytes():
             errors.append(f"Extras differs: {relative}")
+    for chapter in config["chapters"]:
+        for relative, source in crossword_files(root, chapter, config).items():
+            destination = site / relative
+            if not destination.is_file():
+                errors.append(f"Missing crossword: {relative}")
+            elif destination.read_bytes() != source.read_bytes():
+                errors.append(f"Crossword differs: {relative}")
     allowed_markdown = {site / "README.md"} if config.get("release_readme") else set()
     private_suffixes = PRIVATE_SUFFIXES | set(validation.get("private_suffixes", []))
     skip_link_parts = set(validation.get("skip_link_parts", ["templates"]))
@@ -106,7 +113,8 @@ def main() -> None:
     if dispatch(root, args, 'check'):
         return
     site = args.site.resolve() if args.site else root / "release"
-    errors = check(root, site)
+    from chapter_release import check as check_chapters
+    errors = check_chapters(root, site)
     if errors:
         raise SystemExit("\n".join(errors))
     print(f"PASS: links, release scope, private-source exclusions, and unchanged code in {site}")

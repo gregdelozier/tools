@@ -1,0 +1,3 @@
+Crossword key separation
+
+Student crossword now contains only one puzzle page. Answer key generated as a separate .private-prefixed PDF; solution JSON also private-prefixed. Old public solution JSON removed. Added .private* Git exclusion. Release policy rejects crossword key/answer/solution filenames, and index describes only student material. Thirty shared release tests passed, including exclusion of ordinary key and answer filenames. Rendered both new PDFs; page images exactly match previously visually checked student and key pages respectively. Nothing published.

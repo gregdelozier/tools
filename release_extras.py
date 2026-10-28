@@ -36,3 +36,25 @@ def extra_files(root: Path, config: dict) -> dict[Path, Path]:
                 raise ValueError(f"Extras source must not be a symlink: {path}")
             result[relative / name] = path
     return result
+
+
+def crossword_files(root: Path, chapter: dict, config: dict) -> dict[Path, Path]:
+    """Discover finished crossword PDFs only for a selected chapter."""
+    from release_policy import validate_source
+    relative = Path(f"chapter-{chapter['number']}-{chapter['slug']}") / "exercises"
+    base = validate_source(root, root / relative)
+    if not base.is_dir():
+        return {}
+    release = config.get("release", {})
+    excluded = set(release.get("exclude_names", []))
+    suffixes = tuple(release.get("exclude_suffixes", []))
+    result = {}
+    for path in sorted(base.glob("*")):
+        if "crossword" not in path.stem.lower() or path.suffix.lower() != ".pdf":
+            continue
+        if private_name(path.name) or path.name in excluded or (suffixes and path.name.endswith(suffixes)):
+            continue
+        validate_source(root, path)
+        if path.is_file():
+            result[relative / path.name] = path
+    return result
